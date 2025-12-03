@@ -11,23 +11,25 @@ namespace HelixPortal.Api.Data;
 public static class SeedData
 {
     /// <summary>
-    /// Seeds the database with initial admin user if it doesn't exist.
+    /// Seeds the database with initial admin user if no users exist.
+    /// Creates admin user with email: admin@helixportal.local, password: Admin123!
     /// </summary>
     public static async Task SeedAdminUserAsync(ApplicationDbContext context)
     {
-        // Check if admin user already exists
-        var adminExists = await context.Users.AnyAsync(u => u.Email == "admin@helixportal.com");
-        if (adminExists)
+        // Check if any users exist - if so, skip seeding
+        var anyUsersExist = await context.Users.AnyAsync();
+        if (anyUsersExist)
         {
-            return; // Admin already exists, skip seeding
+            return; // Users already exist, skip seeding
         }
 
+        // Create admin user with securely hashed password
         var adminUser = new User
         {
             Id = Guid.NewGuid(),
-            Email = "admin@helixportal.com",
-            PasswordHash = BCrypt.Net.BCrypt.HashPassword("Admin@123!"), // Default password
-            DisplayName = "Admin User",
+            Email = "admin@helixportal.local",
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword("Admin123!", BCrypt.Net.BCrypt.GenerateSalt(12)), // Securely hashed password
+            DisplayName = "Administrator",
             Role = UserRole.Admin,
             IsActive = true,
             CreatedAt = DateTime.UtcNow
