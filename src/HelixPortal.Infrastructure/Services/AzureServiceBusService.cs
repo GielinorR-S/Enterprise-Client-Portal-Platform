@@ -1,5 +1,7 @@
 using Azure.Messaging.ServiceBus;
 using HelixPortal.Application.Interfaces.Services;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using System.Text;
 using System.Text.Json;
 

@@ -18,21 +18,22 @@ public static class DependencyInjection
         this IServiceCollection services,
         IConfiguration configuration)
     {
-        // Database
+        // Database - Get connection string from configuration
         var connectionString = configuration.GetConnectionString("DefaultConnection");
+        
+        // Fallback to environment variable if not in configuration (for Azure deployments)
         if (string.IsNullOrEmpty(connectionString))
         {
-            // Try to get from Azure Key Vault or environment variable
-            connectionString = configuration["ConnectionStrings:DefaultConnection"] 
-                ?? Environment.GetEnvironmentVariable("AZURE_SQL_CONNECTION_STRING");
+            connectionString = Environment.GetEnvironmentVariable("AZURE_SQL_CONNECTION_STRING");
         }
 
-        // Use a default connection string for development if none is configured
+        // Ensure connection string is provided
         if (string.IsNullOrEmpty(connectionString))
         {
-            connectionString = "Server=(localdb)\\mssqllocaldb;Database=HelixPortalDb;Trusted_Connection=true;TrustServerCertificate=true;MultipleActiveResultSets=true";
+            throw new InvalidOperationException("Database connection string 'DefaultConnection' is not configured. Please set it in appsettings.json or environment variable AZURE_SQL_CONNECTION_STRING.");
         }
 
+        // Register DbContext with SQL Server
         services.AddDbContext<ApplicationDbContext>(options =>
             options.UseSqlServer(connectionString));
 

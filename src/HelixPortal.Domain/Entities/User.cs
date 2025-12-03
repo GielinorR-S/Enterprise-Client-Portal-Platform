@@ -1,3 +1,5 @@
+using HelixPortal.Domain.Enums;
+
 namespace HelixPortal.Domain.Entities;
 
 /// <summary>

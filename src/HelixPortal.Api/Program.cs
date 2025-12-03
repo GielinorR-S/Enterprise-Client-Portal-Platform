@@ -1,6 +1,7 @@
 using HelixPortal.Application.Services;
 using HelixPortal.Application.Validators;
 using HelixPortal.Api.Data;
+using HelixPortal.Api.Middleware;
 using HelixPortal.Infrastructure;
 using HelixPortal.Infrastructure.Data;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -116,23 +117,43 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
+// ============================================================================
+// HTTP REQUEST PIPELINE CONFIGURATION
+// ============================================================================
+// Middleware order is critical - configure in the following order:
+// 1. Exception handling (first to catch all errors)
+// 2. Swagger (documentation - available in all environments)
+// 3. HTTPS redirection
+// 4. CORS
+// 5. Authentication
+// 6. Authorization
+// 7. Controllers
 
-app.UseHttpsRedirection();
-
-app.UseCors("AllowWebApp");
-
-// Global exception handling middleware
+// Global exception handling middleware - must be first
 app.UseMiddleware<GlobalExceptionHandlerMiddleware>();
 
+// Swagger - Enable in ALL environments for API documentation
+app.UseSwagger();
+app.UseSwaggerUI(c =>
+{
+    c.SwaggerEndpoint("/swagger/v1/swagger.json", "HelixPortal API v1");
+    c.RoutePrefix = "swagger"; // Access at /swagger
+});
+
+// HTTPS redirection
+app.UseHttpsRedirection();
+
+// CORS - Allow cross-origin requests from configured origins
+app.UseCors("AllowWebApp");
+
+// Authentication & Authorization
 app.UseAuthentication();
 app.UseAuthorization();
 
+// API Health Check Endpoint - Minimal functional homepage
+app.MapGet("/", () => Results.Ok(new { status = "API Running", version = "1.0.0" }));
+
+// Map API controllers
 app.MapControllers();
 
 // Ensure database is created/migrated and seeded

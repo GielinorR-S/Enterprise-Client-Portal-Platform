@@ -21,6 +21,7 @@ public class RequestServiceTests
     private readonly Mock<IClientOrganisationRepository> _clientOrganisationRepositoryMock;
     private readonly Mock<INotificationRepository> _notificationRepositoryMock;
     private readonly Mock<IServiceBusService> _serviceBusServiceMock;
+    private readonly Mock<IUserRepository> _userRepositoryMock;
     private readonly RequestService _requestService;
 
     public RequestServiceTests()
@@ -30,13 +31,15 @@ public class RequestServiceTests
         _clientOrganisationRepositoryMock = new Mock<IClientOrganisationRepository>();
         _notificationRepositoryMock = new Mock<INotificationRepository>();
         _serviceBusServiceMock = new Mock<IServiceBusService>();
+        _userRepositoryMock = new Mock<IUserRepository>();
 
         _requestService = new RequestService(
             _requestRepositoryMock.Object,
             _commentRepositoryMock.Object,
             _clientOrganisationRepositoryMock.Object,
             _notificationRepositoryMock.Object,
-            _serviceBusServiceMock.Object);
+            _serviceBusServiceMock.Object,
+            _userRepositoryMock.Object);
     }
 
     [Fact]
@@ -148,6 +151,10 @@ public class RequestServiceTests
         _requestRepositoryMock
             .Setup(r => r.UpdateAsync(It.IsAny<Request>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(existingRequest);
+
+        _userRepositoryMock
+            .Setup(u => u.GetByIdAsync(authorId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new User { Id = authorId, DisplayName = "Test User" });
 
         // Act
         var result = await _requestService.AddCommentAsync(

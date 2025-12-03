@@ -16,8 +16,8 @@ public class CreateRequestDtoValidator : AbstractValidator<CreateRequestDto>
             .MaximumLength(5000).WithMessage("Description must not exceed 5000 characters");
 
         RuleFor(x => x.Priority)
-            .Must(p => p == "Low" || p == "Medium" || p == "High")
-            .WithMessage("Priority must be Low, Medium, or High");
+            .Must(p => p == "Low" || p == "Medium" || p == "High" || p == "Critical")
+            .WithMessage("Priority must be Low, Medium, High, or Critical");
 
         RuleFor(x => x.DueDate)
             .GreaterThan(DateTime.UtcNow)

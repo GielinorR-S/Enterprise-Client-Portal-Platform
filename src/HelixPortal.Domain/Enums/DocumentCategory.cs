@@ -6,8 +6,8 @@ namespace HelixPortal.Domain.Enums;
 public enum DocumentCategory
 {
     Contract = 0,
-    Invoice = 1,
-    Report = 2,
-    Other = 3
+    Report = 1,
+    Invoice = 2,
+    General = 3
 }
 

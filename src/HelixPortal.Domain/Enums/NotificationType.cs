@@ -7,8 +7,7 @@ public enum NotificationType
 {
     RequestCreated = 0,
     RequestUpdated = 1,
-    RequestCommentAdded = 2,
-    DocumentUploaded = 3,
-    General = 4
+    DocumentUploaded = 2,
+    CommentAdded = 3
 }
 

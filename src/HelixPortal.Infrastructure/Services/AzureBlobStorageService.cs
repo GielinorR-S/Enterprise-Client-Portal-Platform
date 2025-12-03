@@ -1,6 +1,7 @@
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
 using HelixPortal.Application.Interfaces.Services;
+using Microsoft.Extensions.Logging;
 
 namespace HelixPortal.Infrastructure.Services;
 
