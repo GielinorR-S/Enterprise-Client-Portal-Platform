@@ -1,0 +1,178 @@
+# Azure DevOps CI/CD Pipeline for HelixPortal
+# This pipeline builds, tests, and publishes artifacts for deployment
+
+trigger:
+  branches:
+    include:
+      - main
+      - develop
+  paths:
+    exclude:
+      - README.md
+      - docs/*
+
+pr:
+  branches:
+    include:
+      - main
+      - develop
+
+variables:
+  buildConfiguration: 'Release'
+  dotNetFramework: 'net8.0'
+
+stages:
+  - stage: Build
+    displayName: 'Build and Test'
+    jobs:
+      - job: BuildJob
+        displayName: 'Build Solution'
+        pool:
+          vmImage: 'windows-latest'
+        steps:
+          - task: UseDotNet@2
+            displayName: 'Use .NET 8 SDK'
+            inputs:
+              packageType: 'sdk'
+              version: '8.x'
+
+          - task: DotNetCoreCLI@2
+            displayName: 'Restore NuGet packages'
+            inputs:
+              command: 'restore'
+              projects: '**/*.csproj'
+
+          - task: DotNetCoreCLI@2
+            displayName: 'Build solution'
+            inputs:
+              command: 'build'
+              projects: '**/*.sln'
+              arguments: '--configuration $(buildConfiguration) --no-restore'
+
+          - task: DotNetCoreCLI@2
+            displayName: 'Run unit tests'
+            inputs:
+              command: 'test'
+              projects: '**/*Tests/*.csproj'
+              arguments: '--configuration $(buildConfiguration) --no-build --collect:"XPlat Code Coverage" --logger trx --results-directory $(Agent.TempDirectory)/TestResults'
+
+          - task: PublishTestResults@2
+            displayName: 'Publish test results'
+            condition: always()
+            inputs:
+              testResultsFormat: 'VSTest'
+              testResultsFiles: '**/*.trx'
+              testRunTitle: 'Unit Tests'
+
+          - task: PublishCodeCoverageResults@1
+            displayName: 'Publish code coverage'
+            condition: always()
+            inputs:
+              codeCoverageTool: 'Cobertura'
+              summaryFileLocation: '$(Agent.TempDirectory)/TestResults/**/coverage.cobertura.xml'
+
+  - stage: Publish
+    displayName: 'Publish Artifacts'
+    dependsOn: Build
+    condition: succeeded()
+    jobs:
+      - job: PublishJob
+        displayName: 'Publish Application Artifacts'
+        pool:
+          vmImage: 'windows-latest'
+        steps:
+          - task: UseDotNet@2
+            displayName: 'Use .NET 8 SDK'
+            inputs:
+              packageType: 'sdk'
+              version: '8.x'
+
+          - task: DotNetCoreCLI@2
+            displayName: 'Restore packages'
+            inputs:
+              command: 'restore'
+              projects: '**/*.csproj'
+
+          - task: DotNetCoreCLI@2
+            displayName: 'Publish API'
+            inputs:
+              command: 'publish'
+              projects: '**/HelixPortal.Api/*.csproj'
+              arguments: '--configuration $(buildConfiguration) --output $(Build.ArtifactStagingDirectory)/Api --no-restore'
+              zipAfterPublish: false
+
+          - task: DotNetCoreCLI@2
+            displayName: 'Publish Web'
+            inputs:
+              command: 'publish'
+              projects: '**/HelixPortal.Web/*.csproj'
+              arguments: '--configuration $(buildConfiguration) --output $(Build.ArtifactStagingDirectory)/Web --no-restore'
+              zipAfterPublish: false
+
+          - task: ArchiveFiles@2
+            displayName: 'Archive API artifacts'
+            inputs:
+              rootFolderOrFile: '$(Build.ArtifactStagingDirectory)/Api'
+              includeRootFolder: false
+              archiveType: 'zip'
+              archiveFile: '$(Build.ArtifactStagingDirectory)/HelixPortal.Api.zip'
+              replaceExistingArchive: true
+
+          - task: ArchiveFiles@2
+            displayName: 'Archive Web artifacts'
+            inputs:
+              rootFolderOrFile: '$(Build.ArtifactStagingDirectory)/Web'
+              includeRootFolder: false
+              archiveType: 'zip'
+              archiveFile: '$(Build.ArtifactStagingDirectory)/HelixPortal.Web.zip'
+              replaceExistingArchive: true
+
+          - task: PublishBuildArtifacts@1
+            displayName: 'Publish build artifacts'
+            inputs:
+              PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+              ArtifactName: 'drop'
+              publishLocation: 'Container'
+
+  # Deployment stages would go here
+  # Example structure:
+  # - stage: Deploy_Dev
+  #   displayName: 'Deploy to Development'
+  #   dependsOn: Publish
+  #   condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/develop'))
+  #   jobs:
+  #     - deployment: DeployApi
+  #       displayName: 'Deploy API to App Service'
+  #       pool:
+  #         vmImage: 'windows-latest'
+  #       environment: 'Development'
+  #       strategy:
+  #         runOnce:
+  #           deploy:
+  #             steps:
+  #               - task: AzureWebApp@1
+  #                 inputs:
+  #                   azureSubscription: 'Your-Azure-Subscription'
+  #                   appName: 'helixportal-api-dev'
+  #                   package: '$(Pipeline.Workspace)/drop/HelixPortal.Api.zip'
+  #
+  # - stage: Deploy_Prod
+  #   displayName: 'Deploy to Production'
+  #   dependsOn: Publish
+  #   condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+  #   jobs:
+  #     - deployment: DeployApi
+  #       displayName: 'Deploy API to App Service'
+  #       pool:
+  #         vmImage: 'windows-latest'
+  #       environment: 'Production'
+  #       strategy:
+  #         runOnce:
+  #           deploy:
+  #             steps:
+  #               - task: AzureWebApp@1
+  #                 inputs:
+  #                   azureSubscription: 'Your-Azure-Subscription'
+  #                   appName: 'helixportal-api-prod'
+  #                   package: '$(Pipeline.Workspace)/drop/HelixPortal.Api.zip'
+

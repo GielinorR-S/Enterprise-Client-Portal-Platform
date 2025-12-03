@@ -1,0 +1,94 @@
+@{
+    ViewData["Title"] = "Dashboard";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h3">Dashboard</h1>
+</div>
+
+<div class="row">
+    <div class="col-md-3 mb-4">
+        <div class="card text-white bg-primary">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="card-subtitle mb-2">Open Requests</h6>
+                        <h2 class="card-title mb-0" id="openRequestsCount">-</h2>
+                    </div>
+                    <i class="bi bi-ticket-perforated fs-1 opacity-50"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3 mb-4">
+        <div class="card text-white bg-info">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="card-subtitle mb-2">Recently Updated</h6>
+                        <h2 class="card-title mb-0" id="recentRequestsCount">-</h2>
+                    </div>
+                    <i class="bi bi-clock-history fs-1 opacity-50"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3 mb-4">
+        <div class="card text-white bg-success">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="card-subtitle mb-2">New Documents</h6>
+                        <h2 class="card-title mb-0" id="newDocumentsCount">-</h2>
+                    </div>
+                    <i class="bi bi-file-earmark fs-1 opacity-50"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3 mb-4">
+        <div class="card text-white bg-warning">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="card-subtitle mb-2">Notifications</h6>
+                        <h2 class="card-title mb-0" id="unreadNotificationsCount">-</h2>
+                    </div>
+                    <i class="bi bi-bell fs-1 opacity-50"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        // Load dashboard stats
+        async function loadDashboardStats() {
+            try {
+                const token = sessionStorage.getItem('AuthToken') || '@Context.Session.GetString("AuthToken")';
+                const response = await fetch('/api/dashboard/stats', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                if (response.ok) {
+                    const stats = await response.json();
+                    document.getElementById('openRequestsCount').textContent = stats.openRequestsCount || 0;
+                    document.getElementById('recentRequestsCount').textContent = stats.recentlyUpdatedRequestsCount || 0;
+                    document.getElementById('newDocumentsCount').textContent = stats.newDocumentsCount || 0;
+                    document.getElementById('unreadNotificationsCount').textContent = stats.unreadNotificationsCount || 0;
+                }
+            } catch (error) {
+                console.error('Error loading dashboard stats:', error);
+            }
+        }
+        
+        loadDashboardStats();
+    </script>
+}
+

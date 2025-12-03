@@ -1,0 +1,120 @@
+/* Sidebar Styles */
+.wrapper {
+    display: flex;
+    width: 100%;
+    min-height: 100vh;
+}
+
+#sidebar {
+    width: 250px;
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    z-index: 1000;
+    background: #2c3e50;
+    color: #fff;
+    transition: all 0.3s;
+    overflow-y: auto;
+}
+
+#sidebar.active {
+    margin-left: -250px;
+}
+
+.sidebar-header {
+    padding: 20px;
+    background: #1a252f;
+}
+
+.sidebar-header h3 {
+    color: #fff;
+    margin: 0;
+    font-size: 1.2rem;
+}
+
+#sidebar ul.components {
+    padding: 20px 0;
+}
+
+#sidebar ul li a {
+    padding: 12px 20px;
+    font-size: 1rem;
+    display: block;
+    color: #bdc3c7;
+    text-decoration: none;
+    transition: all 0.3s;
+}
+
+#sidebar ul li a:hover {
+    color: #fff;
+    background: #34495e;
+}
+
+#sidebar ul li a i {
+    margin-right: 10px;
+}
+
+.content {
+    width: calc(100% - 250px);
+    padding: 0;
+    min-height: 100vh;
+    transition: all 0.3s;
+    margin-left: 250px;
+}
+
+.content.active {
+    width: 100%;
+    margin-left: 0;
+}
+
+.navbar {
+    position: sticky;
+    top: 0;
+    z-index: 999;
+}
+
+/* Cards */
+.card {
+    border: none;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+}
+
+.card-header {
+    background: #f8f9fa;
+    border-bottom: 1px solid #dee2e6;
+    font-weight: 600;
+}
+
+/* Badges */
+.badge {
+    padding: 0.35em 0.65em;
+}
+
+/* Status badges */
+.badge-status-new { background-color: #0d6efd; }
+.badge-status-inprogress { background-color: #ffc107; color: #000; }
+.badge-status-waiting { background-color: #fd7e14; }
+.badge-status-resolved { background-color: #198754; }
+.badge-status-closed { background-color: #6c757d; }
+
+/* Priority badges */
+.badge-priority-low { background-color: #6c757d; }
+.badge-priority-medium { background-color: #0dcaf0; color: #000; }
+.badge-priority-high { background-color: #dc3545; }
+
+/* Responsive */
+@media (max-width: 768px) {
+    #sidebar {
+        margin-left: -250px;
+    }
+    #sidebar.active {
+        margin-left: 0;
+    }
+    .content {
+        width: 100%;
+        margin-left: 0;
+    }
+}
+
