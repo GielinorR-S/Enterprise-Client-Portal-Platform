@@ -60,7 +60,9 @@ coverage*.info
 *.coverage
 
 # Entity Framework
-Migrations/
+# Note: Migrations should be committed to version control
+# Uncomment the line below if you want to ignore migrations
+# Migrations/
 
 # SQL Server files
 *.mdf
