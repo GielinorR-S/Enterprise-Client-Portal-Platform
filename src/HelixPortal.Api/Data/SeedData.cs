@@ -1,3 +1,4 @@
+using HelixPortal.Api.Auth;
 using HelixPortal.Domain.Entities;
 using HelixPortal.Domain.Enums;
 using HelixPortal.Infrastructure.Data;
@@ -23,12 +24,15 @@ public static class SeedData
             return; // Users already exist, skip seeding
         }
 
+        // Create PasswordHasher instance for seeding
+        var passwordHasher = new PasswordHasher();
+
         // Create admin user with securely hashed password
         var adminUser = new User
         {
             Id = Guid.NewGuid(),
             Email = "admin@helixportal.local",
-            PasswordHash = BCrypt.Net.BCrypt.HashPassword("Admin123!", BCrypt.Net.BCrypt.GenerateSalt(12)), // Securely hashed password
+            PasswordHash = passwordHasher.HashPassword("Admin123!"), // Securely hashed password using HMACSHA256
             DisplayName = "Administrator",
             Role = UserRole.Admin,
             IsActive = true,
@@ -64,12 +68,15 @@ public static class SeedData
         context.ClientOrganisations.Add(clientOrg);
         await context.SaveChangesAsync();
 
+        // Create PasswordHasher instance for seeding
+        var passwordHasher = new PasswordHasher();
+
         // Create a sample client user
         var clientUser = new User
         {
             Id = Guid.NewGuid(),
             Email = "client@acme.com",
-            PasswordHash = BCrypt.Net.BCrypt.HashPassword("Client@123!"), // Default password
+            PasswordHash = passwordHasher.HashPassword("Client@123!"), // Default password
             DisplayName = "Client User",
             Role = UserRole.Client,
             ClientOrganisationId = clientOrg.Id,

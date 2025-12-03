@@ -1,9 +1,7 @@
 using HelixPortal.Api.Auth;
-using HelixPortal.Application.DTOs.Auth;
 using HelixPortal.Application.Interfaces.Repositories;
-using HelixPortal.Application.Services;
-using HelixPortal.Application.Validators;
-using FluentValidation;
+using HelixPortal.Domain.Entities;
+using HelixPortal.Domain.Enums;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
@@ -17,105 +15,47 @@ namespace HelixPortal.Api.Auth;
 [Route("auth")]
 public class AuthController : ControllerBase
 {
-    private readonly AuthService _authService;
     private readonly IUserRepository _userRepository;
-    private readonly IValidator<LoginRequestDto> _loginValidator;
-    private readonly IValidator<RegisterRequestDto> _registerValidator;
+    private readonly PasswordHasher _passwordHasher;
+    private readonly JwtTokenService _jwtTokenService;
     private readonly ILogger<AuthController> _logger;
 
     public AuthController(
-        AuthService authService,
         IUserRepository userRepository,
-        IValidator<LoginRequestDto> loginValidator,
-        IValidator<RegisterRequestDto> registerValidator,
+        PasswordHasher passwordHasher,
+        JwtTokenService jwtTokenService,
         ILogger<AuthController> logger)
     {
-        _authService = authService;
         _userRepository = userRepository;
-        _loginValidator = loginValidator;
-        _registerValidator = registerValidator;
+        _passwordHasher = passwordHasher;
+        _jwtTokenService = jwtTokenService;
         _logger = logger;
     }
 
     /// <summary>
-    /// Login endpoint - validates credentials and returns JWT token.
+    /// Register a new user account.
+    /// Validates email uniqueness and hashes password before saving.
     /// </summary>
-    /// <param name="request">Login credentials</param>
-    /// <param name="cancellationToken">Cancellation token</param>
-    /// <returns>JWT token and user profile data</returns>
-    [HttpPost("login")]
-    [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    public async Task<IActionResult> Login([FromBody] LoginRequest request, CancellationToken cancellationToken)
-    {
-        // Map API model to DTO
-        var loginDto = new LoginRequestDto
-        {
-            Email = request.Email,
-            Password = request.Password
-        };
-
-        var validationResult = await _loginValidator.ValidateAsync(loginDto, cancellationToken);
-        if (!validationResult.IsValid)
-        {
-            return BadRequest(validationResult.Errors);
-        }
-
-        var result = await _authService.LoginAsync(loginDto, cancellationToken);
-        
-        if (result == null)
-        {
-            _logger.LogWarning("Failed login attempt for email: {Email}", request.Email);
-            return Unauthorized(new { message = "Invalid email or password" });
-        }
-
-        // Get user to get the UserId
-        var user = await _userRepository.GetByEmailAsync(result.Email, cancellationToken);
-        if (user == null)
-        {
-            return Unauthorized(new { message = "User not found" });
-        }
-
-        // Map DTO to API response model
-        var response = new AuthResponse
-        {
-            Token = result.Token,
-            Email = result.Email,
-            DisplayName = result.DisplayName,
-            Role = result.Role,
-            ClientOrganisationId = result.ClientOrganisationId,
-            UserId = user.Id
-        };
-
-        return Ok(response);
-    }
-
-    /// <summary>
-    /// Registration endpoint - creates a new user with hashed password.
-    /// Validates email uniqueness.
-    /// </summary>
-    /// <param name="request">Registration details</param>
-    /// <param name="cancellationToken">Cancellation token</param>
-    /// <returns>JWT token and user profile data</returns>
     [HttpPost("register")]
     [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> Register([FromBody] RegisterRequest request, CancellationToken cancellationToken)
     {
-        // Map API model to DTO
-        var registerDto = new RegisterRequestDto
+        // Validate input
+        if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Password))
         {
-            Email = request.Email,
-            Password = request.Password,
-            DisplayName = request.DisplayName,
-            Role = request.Role
-        };
+            return BadRequest(new { message = "Email and password are required" });
+        }
 
-        var validationResult = await _registerValidator.ValidateAsync(registerDto, cancellationToken);
-        if (!validationResult.IsValid)
+        if (string.IsNullOrWhiteSpace(request.DisplayName))
         {
-            return BadRequest(validationResult.Errors);
+            return BadRequest(new { message = "Display name is required" });
+        }
+
+        // Validate email format
+        if (!request.Email.Contains("@") || !request.Email.Contains("."))
+        {
+            return BadRequest(new { message = "Invalid email format" });
         }
 
         // Validate email uniqueness
@@ -125,40 +65,99 @@ public class AuthController : ControllerBase
             return BadRequest(new { message = "Email is already registered" });
         }
 
-        var result = await _authService.RegisterAsync(registerDto, cancellationToken);
-        
-        if (result == null)
+        // Validate role
+        if (!Enum.TryParse<UserRole>(request.Role, true, out var role))
         {
-            return BadRequest(new { message = "Registration failed. Please check your input and try again." });
+            role = UserRole.Staff; // Default to Staff
         }
 
-        // Map DTO to API response model
-        var response = new AuthResponse
+        // Hash password
+        var passwordHash = _passwordHasher.HashPassword(request.Password);
+
+        // Create user
+        var user = new User
         {
-            Token = result.Token,
-            Email = result.Email,
-            DisplayName = result.DisplayName,
-            Role = result.Role,
-            ClientOrganisationId = result.ClientOrganisationId,
-            UserId = Guid.Empty // Will be set after user creation
+            Id = Guid.NewGuid(),
+            Email = request.Email,
+            PasswordHash = passwordHash,
+            DisplayName = request.DisplayName,
+            Role = role,
+            IsActive = true,
+            CreatedAt = DateTime.UtcNow
         };
 
-        // Get the created user to get the ID
-        var createdUser = await _userRepository.GetByEmailAsync(result.Email, cancellationToken);
-        if (createdUser != null)
+        // Save user
+        var createdUser = await _userRepository.CreateAsync(user, cancellationToken);
+
+        // Generate token
+        var token = _jwtTokenService.GenerateToken(createdUser);
+
+        // Return response
+        var response = new AuthResponse
         {
-            response.UserId = createdUser.Id;
-        }
+            Token = token,
+            UserId = createdUser.Id,
+            Email = createdUser.Email,
+            DisplayName = createdUser.DisplayName,
+            Role = createdUser.Role.ToString(),
+            ClientOrganisationId = createdUser.ClientOrganisationId
+        };
 
         return Ok(response);
     }
 
     /// <summary>
-    /// Get current user profile - requires authentication.
-    /// Reads UserId from JWT token claims.
+    /// Login with email and password.
+    /// Validates credentials and returns JWT token.
     /// </summary>
-    /// <param name="cancellationToken">Cancellation token</param>
-    /// <returns>User profile information</returns>
+    [HttpPost("login")]
+    [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> Login([FromBody] LoginRequest request, CancellationToken cancellationToken)
+    {
+        // Validate input
+        if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Password))
+        {
+            return BadRequest(new { message = "Email and password are required" });
+        }
+
+        // Get user by email
+        var user = await _userRepository.GetByEmailAsync(request.Email, cancellationToken);
+        if (user == null || !user.IsActive)
+        {
+            _logger.LogWarning("Failed login attempt for email: {Email}", request.Email);
+            return Unauthorized(new { message = "Invalid email or password" });
+        }
+
+        // Verify password
+        if (!_passwordHasher.VerifyPassword(request.Password, user.PasswordHash))
+        {
+            _logger.LogWarning("Failed login attempt for email: {Email}", request.Email);
+            return Unauthorized(new { message = "Invalid email or password" });
+        }
+
+        // Generate token
+        var token = _jwtTokenService.GenerateToken(user);
+
+        // Return response
+        var response = new AuthResponse
+        {
+            Token = token,
+            UserId = user.Id,
+            Email = user.Email,
+            DisplayName = user.DisplayName,
+            Role = user.Role.ToString(),
+            ClientOrganisationId = user.ClientOrganisationId
+        };
+
+        return Ok(response);
+    }
+
+    /// <summary>
+    /// Get current authenticated user profile.
+    /// Requires valid JWT token in Authorization header.
+    /// </summary>
     [HttpGet("me")]
     [Authorize]
     [ProducesResponseType(typeof(UserProfileResponse), StatusCodes.Status200OK)]
@@ -167,7 +166,7 @@ public class AuthController : ControllerBase
     public async Task<IActionResult> GetMe(CancellationToken cancellationToken)
     {
         // Get user ID from JWT claims
-        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+        var userIdClaim = User.FindFirst("sub") ?? User.FindFirst(ClaimTypes.NameIdentifier);
         if (userIdClaim == null || !Guid.TryParse(userIdClaim.Value, out var userId))
         {
             return Unauthorized(new { message = "Invalid token" });
@@ -180,6 +179,7 @@ public class AuthController : ControllerBase
             return NotFound(new { message = "User not found" });
         }
 
+        // Return response
         var response = new UserProfileResponse
         {
             Id = user.Id,
@@ -194,4 +194,3 @@ public class AuthController : ControllerBase
         return Ok(response);
     }
 }
-

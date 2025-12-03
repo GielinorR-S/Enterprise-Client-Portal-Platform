@@ -1,5 +1,6 @@
 using HelixPortal.Application.Services;
 using HelixPortal.Application.Validators;
+using HelixPortal.Api.Auth;
 using HelixPortal.Api.Data;
 using HelixPortal.Api.Middleware;
 using HelixPortal.Infrastructure;
@@ -63,10 +64,10 @@ builder.Services.AddSwaggerGen(c =>
 });
 
 // Configure JWT Authentication
-var jwtSecretKey = builder.Configuration["Jwt:SecretKey"]
-    ?? throw new InvalidOperationException("JWT SecretKey is not configured");
+var jwtKey = builder.Configuration["Jwt:Key"]
+    ?? throw new InvalidOperationException("JWT Key is not configured in appsettings.json");
 var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "HelixPortal";
-var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "HelixPortal";
+var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "HelixPortalUsers";
 
 builder.Services.AddAuthentication(options =>
 {
@@ -83,7 +84,9 @@ builder.Services.AddAuthentication(options =>
         ValidateIssuerSigningKey = true,
         ValidIssuer = jwtIssuer,
         ValidAudience = jwtAudience,
-        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecretKey))
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
+        NameClaimType = "sub",  // Map "sub" claim to user name
+        RoleClaimType = "role"   // Map "role" claim for authorization
     };
 });
 
@@ -91,6 +94,10 @@ builder.Services.AddAuthorization();
 
 // Add Infrastructure layer (Database, Repositories, Services)
 builder.Services.AddInfrastructure(builder.Configuration);
+
+// Add Authentication services
+builder.Services.AddScoped<PasswordHasher>();
+builder.Services.AddScoped<JwtTokenService>();
 
 // Add Application layer services
 builder.Services.AddScoped<AuthService>();

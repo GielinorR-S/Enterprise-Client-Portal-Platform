@@ -1,16 +1,16 @@
 namespace HelixPortal.Api.Auth;
 
 /// <summary>
-/// Response model for authentication endpoints (login, register, me).
+/// Response model for authentication endpoints (login, register).
 /// </summary>
 public class AuthResponse
 {
     public string Token { get; set; } = string.Empty;
+    public Guid UserId { get; set; }
     public string Email { get; set; } = string.Empty;
     public string DisplayName { get; set; } = string.Empty;
     public string Role { get; set; } = string.Empty;
     public Guid? ClientOrganisationId { get; set; }
-    public Guid UserId { get; set; }
 }
 
 /// <summary>
